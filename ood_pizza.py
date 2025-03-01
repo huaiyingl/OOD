@@ -48,7 +48,7 @@ Size, Item, Pizza, Order(manager of all items)
 - Topping and Size can't exist without a Pizza
 - Pizza must be initiated with a Size
 - Pizza: {Topping -> count} since Topping can't exist without a Pizza, no need to have an id
-- Order: {pizza_id -> Pizza}
+- Order: {pizza_id -> Pizza} / [Pizza]
 
 """
 
@@ -109,8 +109,10 @@ class Pizza:
         count = self._toppings.get(topping, 0)
         if count > 0:
             self._toppings[topping] = count - 1
+            if self._toppings[topping] == 0:
+                del self._toppings[topping]
         else:
-            raise Exception("Topping not found")
+            raise ValueError("Topping not found")
 
     def calculate_pizza_price(self):
         if not self._size:
@@ -139,13 +141,14 @@ class Order:
             raise Exception("Pizza not found")
     
     def remove_topping(self, pizza_id, topping):
-        if pizza_id in self._pizzas:
-            if topping in self._pizzas[pizza_id].toppings:
-                self._pizzas[pizza_id].remove_topping(topping)
-            else:
-                raise Exception("Topping not found")
-        else:
-            raise Exception("Pizza not found")
+        try:
+            if pizza_id not in self._pizzas:
+                raise Exception("Pizza not found")
+            
+            self._pizzas[pizza_id].remove_topping(topping)
+
+        except ValueError as e:
+            print(f"Error: {e}")
 
     def remove_pizza(self, pizza_id):
         if pizza_id in self._pizzas:
