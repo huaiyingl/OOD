@@ -14,6 +14,75 @@ Requirements:
 
 
 Clarifications:
+1. Are all the lockers the same size? (Small medium and large)
+  - Packages have dimensions so you could technically fit multiple packages in a locker
+  - This means for privacy we need all packages in a locker to belong to the same user
+2. What is the expected dropoff/pickup spec?
+  - User drops off package -> id, length, width, depth
+  - User if there's multiple packages in a locker things get complicated.  How do we know the user even picked up the right package?
+  - This means the user would need a checkout stage as well
+3. Do we need to worry about preventing theft?  Do we need to worry about preventing stupidity (user grabs the wrong package)
+    - You can assume the user is honest, and that they will always do what they are supposed to do (for now)
+4. Can we assume the user checks out one package at a time (and drops off one package at a time)
+  - yes assume the user drops off multiple packages, and will always check out all packages that belong to them
+
+
+class LockerSystem:
+    def __init__(self):
+        self.lockers: Dict[str, Locker]
+        self.user_to_packages: Dict[str, List[Package]] = {}
+        self.package_to_locker: Dict[str, str] = {}
+
+    def dropoff(self, user_id: str, packages: List[Package]):
+        # First see what lockers are already occupied by the user
+        # Then see if any of those lockers have enough remaining capacity to fit the new packages
+        # Otherwise, add the packages to the locker and return the locker id(s)
+
+    def retrieve(self, user_id: str):
+        # Given a user id, find all packages that belong to them (and their locker ids)
+        # Provide the user a list of locker ids and lock combinations
+
+    def checkout(self, package_ids: List[str]):
+        # Updates the state of the lockers based on the checked out packages
+
+class Locker:
+    def __init__(self, id: str, length: int, width: int, depth: int):
+        self.id = id
+        self.length = length
+        self.width = width
+        self.depth = depth
+        self.__packages: List[Package] = []
+        self.__code = None
+        self.__is_locked = False
+        
+    def generate_combo(self):
+        # Generate a random combination of 4 numbers
+
+    def lock(self):
+        self.__is_locked = True
+        self.__code = self.generate_combo()
+        return self.__code
+
+    def unlock(self, code: str):
+        if self.__code == code:
+            self.__is_locked = False
+
+    def can_add_package(self, package: Package):
+        # Check if the locker has enough remaining capacity to fit the new package
+    
+    def add_package(self, package: Package):
+        pass
+    
+    def remove_package(self, package: Package):
+        pass
+
+class Package:
+    def __init__(self, id: str, length: int, width: int, depth: int):
+        self.id = id
+        self.length = length
+        self.width = width
+        self.depth = depth
+
 1. how many packages can be stored in one locker?
     - do all packages in one locker belong to the same user?
 
@@ -49,7 +118,9 @@ workflow:
 from enum import Enum
 import random
 import string
-from typing import List, Optional, Dict
+from typing import Dict, Optional, List, Tuple
+import heapq
+
 
 class LockerSize(Enum):
     SMALL = 1
@@ -57,149 +128,109 @@ class LockerSize(Enum):
     LARGE = 3
 
 
-"""
-Locker class is the most appropriate place to manage its packages because:
-
-- Single Responsibility Principle: Each locker is responsible for what's inside it
-- Information Hiding: The locker implementation can change without affecting the system
-- Domain Modeling: It best represents the real-world relationship
-
-"""
-
 class Package:
     """Represents a package to be stored in a locker"""
-    def __init__(self, size: int, user_id: str):
+    def __init__(self, size: LockerSize, user_id: str):
         self._size = size
         self._user_id = user_id
 
-    @property
-    def size(self):
-        return self._size
-    
-    # TODO: all getters
 
-
-
-# Locker: represents an individual locker that can hold one or more packages
 class Locker:
+    """Represents a locker that can store a single package"""
     def __init__(self, size: LockerSize):
         self._size = size
-        self._capacity = size.value
-        self._is_occupied = False
-        self._packages: List[Package] = []
-        self._ticket: Optional[Ticket] = None
-        self._user_id = None
-
-    @property
-    def size(self):
-        return self._size
+        self._package: Optional[Package] = None  # Only one package allowed
+        self._code: Optional[str] = None
+        self._is_locked: bool = False
     
-    # TODO: all getters
-
-    def occupy(self):
-        self._is_occupied = True
-
-    def release(self):
-        self._is_occupied = False
-
-    def has_capacity(self, package):
-        return self._capacity >= package.size
-
-    # CORE
-    def add_package(self, package) -> None:
-        if self.has_capacity(package):
-            self._packages.append(package)
-            self._capacity -= package.size
-            self._is_occupied = True
-            # Generate a ticket for a package
-            if self._ticket is None:
-                self._ticket = Ticket(self)
-        else:
-            raise Exception("Locker does not have enough capacity")
-        
-    def remove_all_packages(self) -> None:
-        self._packages = []
-        self._capacity = self._size.value
-        self._is_occupied = False
-        self._user_id = None
-        if self._ticket is not None:  # Check if ticket exists
-            self._ticket.invalidate()
-            self._ticket = None
-
+    def generate_combo(self) -> str:
+        return ''.join(random.choices(string.digits, k=4))
     
-
-# Ticket: access control of a locker using a code
-class Ticket:
-    def __init__(self, id, locker):
-        self._locker = locker
-        self._code = self.generate_code()
-        self._is_valid = True
-
-    @property
-    def locker(self):
-        return self._locker
-    
-    # TODO: all getters
-    
-    def generate_code(self):
-        pass
-
-    def invalidate(self):
-        self._is_valid = False
-
-    def verify_code(self, code):
-        return self._is_valid and self._code == code
-    
-
-class LockerCenter:
-    def __init__(self):
-        self._lockers = []
-        self._tickets = []
-        self._locker_to_ticket = {} # locker -> ticket
-
-    def add_locker(self, locker):
-        pass
-
-    def remove_locker(self, locker):
-        pass
-    
-    # CORE
-    def find_optimal_locker(self, package: Package) -> Optional[Locker]:
-        # 1. find a locker with existing packages that has enough capacity under the same user
-        for locker in self._lockers:
-            if locker.is_occupied and locker.has_capacity(package) and locker.user_id == package.user_id:
-                return locker
-
-        # 2. if no locker is found, find a smalest locker with enough capacity
-        suitable_lockers = [locker for locker in self._lockers 
-                           if not locker.is_occupied and locker.has_capacity(package)]
-        
-        if suitable_lockers:
-            # Sort lockers by size (smallest first)
-            return min(suitable_lockers, key=lambda locker: locker._size.value)
-
-        # 3. if no locker is found, return None
+    def lock(self) -> Optional[str]:
+        # Locker generates a code when it is locked
+        if self._package:
+            self._is_locked = True
+            self._code = self.generate_combo()
+            return self._code
         return None
     
-    def store_package(self, package: Package) -> Optional[Ticket]:
-        locker = self.find_optimal_locker(package)
-        if locker:
-            locker.add_package(package)
-            self._locker_to_ticket[locker] = locker.ticket
-            return locker.ticket
-        return None
-
-    def unlock_locker(self, locker, password):
-        ticket = self._locker_to_ticket.get(locker)
-        if ticket.verify_code(password):
-            locker.remove_all_packages()
+    def unlock(self, code: str) -> bool:
+        # Locker unlocks when the code is correct
+        if self._code == code:
+            self._is_locked = False
             return True
         return False
     
-# TODO: code is now stored in the ticket not the locker
-# implement another version of no tickert, only the locker
-        
-        
-        
+    def is_available(self) -> bool:
+        return self._package is None
+    
+    def can_store_package(self, package: Package) -> bool:
+        return self.is_available() and self._size.value >= package.size.value
+    
+    def store_package(self, package: Package) -> Optional[str]:
+        if self.can_store_package(package):
+            self._package = package
+            return self.lock()
+        return None
+    
+    def retrieve_package(self) -> Optional[Package]:
+        if not self.is_available():
+            package = self._package
+            self._package = None
+            self._is_locked = False
+            self._code = None
+            return package
+        return None
+
+
+class LockerCenter:
+    def __init__(self):
+        self._lockers: List[Locker] = []
+        self._package_to_locker: Dict[Package, Locker] = {}  # Maps package objects to locker objects
+
+    def add_locker(self, locker: Locker) -> None:
+        self._lockers.append(locker)
+    
+    def remove_locker(self, locker: Locker) -> bool:
+        if locker in self._lockers:
+            self._lockers.remove(locker)
+            return True
+        return False
+    
+    def dropoff(self, package: Package) -> Optional[Tuple[Locker, str]]:
+        locker = self.find_optimal_locker(package)
+        if locker:
+            code = locker.store_package(package)
+            self._package_to_locker[package] = locker
+            return locker, code
+        return None
+    
+    def find_optimal_locker(self, package: Package) -> Optional[Locker]:
+        candidates = []
+        for locker in self._lockers:
+            if locker.can_store_package(package):
+                heapq.heappush(candidates, (locker.size.value, locker))
+        if candidates:
+            return heapq.heappop(candidates)[1] # return the locker with the smallest size
+        return None
+    
+    def retrieve(self, user_id: str) -> List[Tuple[Package, Locker]]:
+        user_packages = []
+        for package, locker in self._package_to_locker.items():
+            if package.user_id == user_id:
+                user_packages.append((package, locker))
+        return user_packages
+    
+    def checkout(self, package: Package, code: str) -> Optional[Package]:
+        locker = self._package_to_locker.get(package)
+        if locker:
+            if not locker.is_available() and locker.package == package:
+                if locker.unlock(code):
+                    retrieved_package = locker.retrieve_package()
+                    if retrieved_package:
+                        del self._package_to_locker[package]
+                        return retrieved_package
+        return None
+
         
 
